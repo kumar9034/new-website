@@ -1,0 +1,11 @@
+{
+  "name": "full-stuck",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "start"
+  },
+  "author": "rahul kumar",
+  "license": "ISC",
+  "description": ""
+}
