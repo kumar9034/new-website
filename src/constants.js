@@ -1,0 +1,1 @@
+export const mongodb_name = "videoshow"
