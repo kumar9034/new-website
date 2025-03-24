@@ -25,7 +25,7 @@ router.route("/change-password").post(verifyjwt, changePassword)
 router.route("/current-user").get(verifyjwt, getCurrentUser )
 router.route("/user-update").patch(verifyjwt, updatedetails)
 router.route("/user-coverimage").patch(verifyjwt, upload.single("avatar"), coverImageChange)
-router.route("/user-avatarimage").patch(verifyjwt, upload.single("/coverImage"), AvatarImageChange )
+router.route("/user-avatarimage").patch(verifyjwt, upload.single("coverImage"), AvatarImageChange )
 router.route("/c/:username").get(verifyjwt, getchannel)
 router.route("/history").get(verifyjwt, getwatchHistory)
 
