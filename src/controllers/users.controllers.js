@@ -1,10 +1,12 @@
-import {asyncohandling } from '../utils/asyncohandling.js';
+import mongoose from 'mongoose';
+import { asyncohandling } from '../utils/asyncohandling.js';
 import { APIError } from '../utils/APIError.js';
-import { User} from "../models/user.models.js"
+import { User } from "../models/user.models.js";
 import { uploadonCloudinary } from '../utils/cloudinary.js';  
 import { APIrespones } from '../utils/APIresponse.js';
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 import fs from 'fs';
+import { log } from 'console';
 
 const handleAccesstokenAndRefereshToken = async (userId)=>{
     try {
@@ -153,8 +155,8 @@ const logoutUser = asyncohandling(async (req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            $set: {
-                refreshToken: undefined
+            $unset: {
+                refreshToken: 1
             }
         },
         {
@@ -313,75 +315,80 @@ const AvatarImageChange = asyncohandling(async(req, res)=>{
    )
 
 })
-const getchannel = asyncohandling(async(req, res)=>{
-    const {username} = req.params
+const getchannel = asyncohandling(async (req, res) => {
+    const { username } = req.params;
 
-    if(!username){
-        throw new APIError(400, "username is missing")
+    if (!username || !username.trim()) {
+        throw new APIError(400, "Username is missing or invalid");
     }
 
-  const channel =  await User.aggregate([
+    // Remove the colon if it exists
+    const cleanUsername = username.replace(/^:/, "").trim();
+    console.log("Fetching channel for username:", cleanUsername);
+
+    const channel = await User.aggregate([
         {
-            $match:{
-                username: username?.toLowerCase()
-            }
+            $match: {
+                username: { $regex: `^${cleanUsername}$`, $options: 'i' },
+            },
         },
         {
-            $lookup:{
+            $lookup: {
                 from: "subscriptions",
-                localField:"_id",
-                foreignField:"channel",
-                as: "subscribers"
-            }
-            
-        },{
-            $lookup:{
-                from: "subscriptions",
-                localField:"_id",
-                foreignField:"sbubscriber",
-                as: "subscribedTo"
-            }
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers",
+            },
         },
         {
-            $addFields:{
-                subscriberCount: {
-                    $size: "$subscribers"},
-                subscribedToCount: {
-                    $size: "$subscribedTo"},
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo",
+            },
+        },
+        {
+            $addFields: {
+                subscriberCount: { $size: "$subscribers" },
+                channelsubscribedToCount: { $size: "$subscribedTo" },
                 isSubscribed: {
-                  if:{$in: [req.user?._id, "$subscribers.subscriber"]},
-                  then: true,
-                  else: false
-                }
-            }
+                    $in: [req.user?._id, "$subscribers.subscriber"],
+                },
+            },
         },
         {
-            $project :{
-                username:1,
-                fullname:1,
-                avatar:1,
-                coverImage:1,
-                subscriberCount:1,
-                subscribedToCount:1,
-                isSubscribed:1,
-                email:1
-            }
-        }
-    ])
+            $project: {
+                username: 1,
+                fullname: 1,
+                avatar: 1,
+                coverImage: 1,
+                subscriberCount: 1,
+                channelsubscribedToCount: 1,
+                isSubscribed: 1,
+                email: 1,
+            },
+        },
+    ]);
 
-    if(!Channel){
-        throw new APIError(404, "channel  not exist")
+    console.log("Channel result:", channel);
+
+    if (!channel || channel.length === 0) {
+        console.error("Channel not found for username:", cleanUsername);
+        throw new APIError(404, `Channel with username '${cleanUsername}' does not exist`);
     }
-    
+
     return res.status(200).json(
-        new APIrespones(200, channel[0], "user channel fetched successfully"))
-})
+        new APIrespones(200, channel[0], "User channel fetched successfully")
+    );
+});
+
  
 const getwatchHistory = asyncohandling(async(req, res)=>{
    const user = await User.aggregate([
         {
             $match:{
-                _id: new mongoose.type.ObjectId(req.user._id)
+                _id: new mongoose.Types.ObjectId(req.user._id)
             }
         },
         {
@@ -418,6 +425,7 @@ const getwatchHistory = asyncohandling(async(req, res)=>{
             }
         }
     ])
+
 
     return res.status(200).json(
         new APIrespones(200, user[0].watchHistory , "watch history fetched successfully")
